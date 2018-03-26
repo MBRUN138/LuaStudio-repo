@@ -1,4 +1,4 @@
-# How to make a gun
+# How to make a raycasting gun
 
 1. Open explorer in Roblox Studio.
 2. Insert a tool into the workspace and name that tool whatever.
