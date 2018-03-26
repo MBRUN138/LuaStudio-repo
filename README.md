@@ -1,2 +1,3 @@
 # LuaStudio-repo
-Repository for Lua and Roblox Lua project.
+Repository for Lua and Roblox Lua projects.
+Tutorials will be added under the 'Wiki' tab.
