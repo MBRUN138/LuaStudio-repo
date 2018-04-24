@@ -121,6 +121,7 @@ tool.Equipped:connect(function(mouse)
 end)
 
 tool.Unequipped:connect(function(mouse)
+	aiming.Value = false
 	humanoid.WalkSpeed = walkspeed
 	Holding = false
 	DisableGui()
