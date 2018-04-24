@@ -1,161 +1,127 @@
 local replicatedstorage = game:GetService("ReplicatedStorage")
+local userInputService = game:GetService("UserInputService")
+local fireray = replicatedstorage:WaitForChild("FireRay")
+local doreload = replicatedstorage:WaitForChild("DoReload")
 
--- Class Enums
-local handgun, assaultrifle, shotgun, longrifle, other =
- "Handgun","AssultRifle","Shotgun","LongRifle","Other"
+-- Player
+player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded()
+local humanoid = character:WaitForChild("Humanoid")
+local walkspeed = humanoid.WalkSpeed
 
-function Handgun() return handgun end
-function AssaultRifle() return assaultrifle end
-function Shotgun() return shotgun end
-function LongRifle() return longrifle end
-function Other() return other end
+-- Tool
+local tool = script.Parent.Parent
+local objects = script.Objects
 
--- Handguns
-local h_animations = script.Animations
+-- Configs
+local configs = tool.Configs
+local waitTime = configs.WaitTime.Value
+local mouseicon = configs.MouseIcon.Value
+local reloadtime = configs.ReloadTime.Value
+local capacity = configs.Clip.Value
+local clip = capacity
 
--- AssaultRifles
--- Shotguns
--- LongRifles
--- Others
+-- Status
+local status = tool.Status
+local aiming = status.Aiming
 
--- LoadAnimations
-local function LoadAnimations(humanoid,class)
-	if class == Handgun() then
-		local fire = humanoid:LoadAnimation(h_animations.Fire)
-		return fire
+-- Objects
+local ammogui = objects.AmmoGui:Clone()
+local namegui = objects.NameGui:Clone()
+local counter = ammogui.Counter
+local weaponname = namegui.WeaponName
+local playergui = player:WaitForChild("PlayerGui")
+ammogui.Parent = playergui
+namegui.Parent = playergui
+
+weaponname.Text = tool.Name
+
+-- Functions
+local function UpdateCounter()
+	counter.Text = clip .. " / " .. capacity
+end
+UpdateCounter()
+
+local function EditCounter(str)
+	counter.Text = str
+end
+
+local function EnableGui()
+	namegui.Enabled = true
+	ammogui.Enabled = true
+end
+
+local function DisableGui()
+	namegui.Enabled = false
+	ammogui.Enabled = false
+end
+
+-- Mouse
+local mouse = player:GetMouse()
+
+-- Bools
+local CanFire = true
+local CanReload = true
+local Holding = false
+
+-- ActionFunctions
+
+local function Reload()
+	if CanReload then
+		CanReload = false
+		Holding = false
+		CanFire = false
+		doreload:InvokeServer(tool)
+		EditCounter("[reloading]")
+		wait(reloadtime)
+		clip = capacity
+		UpdateCounter()
+		CanFire = true
+		CanReload = true
 	end
 end
 
--- Create Remote
-local fireray = Instance.new("RemoteFunction")
-fireray.Parent = replicatedstorage
-fireray.Name = "FireRay"
+local function Fire()
+	Holding = true
+	if CanFire and clip > 0 then
+		while Holding and clip > 0 do
+			CanFire = false
+			clip = clip - 1
+			UpdateCounter()
+			fireray:InvokeServer(tool)
+			wait(waitTime)
+			CanFire = true
+		end
+	end
+	if clip == 0 then
+		Reload()
+	end	
+end
 
-local function onFireRay(player,tool)
-	
-	local playerfolder = workspace["@"..player.Name]
-	
-	-- Configs
-	local configs = tool.Configs
-	local damage = configs.Damage.Value
-	local class = configs.Class.Value
-	local color = configs.RayColor.Value
-	local pellets = configs.Pellets.Value
-	
-	local barrel = tool.Barrel
-	local flash = barrel.Flash
-	local mouse = player:GetMouse()
-	mouse.TargetFilter = playerfolder
-	local character = player.Character
-	
-	local n_hitsound = script.NeutralHitSound:Clone()
-	local p_hitsound = script.PlayerHitSound:Clone()
-	
-	-- Status
-	local status = tool.Status
-	local aiming = status.Aiming.Value
-	
-	-- Objects
-	local scripts = tool.Scripts
-	local raycastscript = scripts:FindFirstChild("SemiRaycastScript") or scripts:FindFirstChild("AutoRaycastScript")
-	local objects = raycastscript.Objects
-	local firesound = objects.FireSound:Clone()
-	firesound.Parent = barrel
-	
-	if character then
-		firesound:Play()
-		-- Animations
-		local humanoid = character:FindFirstChild("Humanoid")
-		local fire = LoadAnimations(humanoid,class)
-		fire:Play()
-		
-		flash.Color = ColorSequence.new(color)
-		flash.Enabled = true
-		
-		local light = Instance.new("PointLight",barrel)
-		light.Color = color
-		
-		spawn(function()
-			light:Destroy()
-			flash.Enabled = false
+local function Aim()
+	aiming.Value = true
+	humanoid.WalkSpeed = walkspeed/2
+end
+
+tool.Equipped:connect(function(mouse)
+	mouse.Icon = mouseicon
+	EnableGui()
+	mouse.Button1Down:connect(Fire)
+	mouse.Button1Up:connect(function()Holding = false end)
+	mouse.Button2Down:connect(Aim)
+	mouse.Button2Up:connect(function()
+		aiming.Value = false
+		humanoid.WalkSpeed = walkspeed
 		end)
-		
-		local function rand(a, b)
-		    return a + math.random() * (b - a)
+	userInputService.InputBegan:connect(function(key)
+		if key.KeyCode == Enum.KeyCode.R then
+			Reload()
 		end
-		
-		for i = 1, pellets, 1 do
-		
-			local accuracy = 2
-					
-			local barrelCF = barrel.CFrame
-			barrelCF = barrelCF * CFrame.Angles(0, 0, rand(0, math.pi/accuracy))
-			barrelCF = barrelCF * CFrame.Angles(rand(0,0.1), 0, 0)
-			
-			local mouseCF = mouse.Hit
-			mouseCF = mouseCF * CFrame.Angles(0, 0, rand(0, math.pi/accuracy))
-			mouseCF = mouseCF * CFrame.Angles(rand(0,0.1),0,0)
-			
-			local part, position
-			if not aiming then 
-				local ray = Ray.new(barrelCF.p, mouseCF.lookVector * 300) 
-				part, position = workspace:FindPartOnRayWithIgnoreList(ray,{character,playerfolder})
-			else
-				local ray = Ray.new(barrel.CFrame.p, (mouse.Hit.p - barrel.CFrame.p) * 300) 
-				part, position = workspace:FindPartOnRayWithIgnoreList(ray,{character,playerfolder})
-			end
-			
-			local beam = Instance.new("Part",workspace.bin)
-			beam.Name = "Beam"
-			beam.Color = color
-			beam.Material = "Neon"
-			beam.Transparency = 0.9
-			beam.Anchored = true
-			beam.CanCollide = false
-		
-			local distance = (barrel.CFrame.p - position).magnitude
-			beam.Size = Vector3.new(0.1, 0.1, distance)
-			beam.CFrame = CFrame.new(barrel.CFrame.p, position) * CFrame.new(0, 0, -distance / 2)
-	
-			spawn(function()
-				while beam.Transparency < 1 do
-					beam.Transparency = beam.Transparency + 0.15
-					wait()
-				end
-				beam:Destroy()
-			end)
-			
-			if part then
-			
-				local humanoid = part.Parent:FindFirstChild("Humanoid")
-				if not humanoid then 
-					humanoid = part.Parent.Parent:FindFirstChild("Humanoid")
-				end
-				if humanoid then
-					p_hitsound.Parent = part
-					p_hitsound:Play()
-					if part.Name == "Head" then
-						humanoid:TakeDamage(damage * 1.5)
-					else
-						humanoid:TakeDamage(damage)
-					end
-				else
-					local hit = Instance.new("Part",workspace.bin)
-					hit.CanCollide = false
-					hit.Anchored = true
-					hit.Size = Vector3.new(0.1,0.1,0.1)
-					hit.Shape = "Ball"
-					hit.Color = color
-					hit.Position = position
-					hit.Material = "Neon"
-					n_hitsound.Parent = hit
-					n_hitsound:Play()
-								
-					game:GetService("Debris"):AddItem(hit,0.1)
-				end
-			end
-		end
-	end
-end
+	end)
+end)
 
-fireray.OnServerInvoke = onFireRay
+tool.Unequipped:connect(function(mouse)
+	humanoid.WalkSpeed = walkspeed
+	Holding = false
+	DisableGui()
+end)
