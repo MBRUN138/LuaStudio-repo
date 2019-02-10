@@ -12,4 +12,4 @@ local function handleAction(actionName, inputState, inputObj)
 end
  
 -- Bind the action to the handler
-ContextActionService:BindAction("BoundAction", handleAction, false, Enum.KeyCode.F)
+ContextActionService:BindAction("BoundAction", handleAction, false, (Enum.KeyCode.F))
