@@ -1,4 +1,4 @@
-# LuaStudio-repo
+# Byteme
 Repository for Lua and Roblox Lua projects.
 Tutorials will be added under the 'Wiki' tab.
 
